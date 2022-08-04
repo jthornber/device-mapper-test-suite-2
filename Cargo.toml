@@ -1,8 +1,39 @@
 [package]
-name = "dmtest-rs"
+name = "dmtest"
 version = "0.1.0"
+authors = ["Joe Thornber <ejt@redhat.com>"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "GPL3"
 
 [dependencies]
+atty = "0.2"
+anyhow = "1.0"
+base64 = "0.13"
+byteorder = "1.4"
+clap = "3.2"
+crc32c = "0.6"
+data-encoding = "2.3"
+devicemapper = "0.32"
+duct = "0.13"
+env_logger = "0.8"
+exitcode = "1.1.2"
+indicatif = "0.16"
+log = "0.4"
+nix = "0.24"
+nom = "7.1"
+num_cpus = "1.13"
+num-derive = "0.3"
+num-traits = "0.2"
+quick-xml = "0.22"
+rand = "0.8"
+rangemap = "1.0"
+regex = "1.6.0"
+roaring = "0.9"
+safemem = "0.3"
+threadpool = "1.8"
+thread_local = "1.1"
+thiserror = "1.0"
+tui = "0.14"
+termion = "1.5"
+zstd = "0.11"
+
