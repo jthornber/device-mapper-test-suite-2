@@ -1,7 +1,10 @@
-/*
-struct TempFile {}
+use anyhow::Result;
+use std::path::PathBuf;
 
-pub fn with_temp_file<S: AsRef<str>>(contents: S) -> std::io::Result<TempFile> {
+//---------------------------------
+
+pub fn temp_name() -> Result<PathBuf> {
     todo!();
 }
-*/
+
+//---------------------------------

@@ -1,34 +1,42 @@
 use anyhow::Result;
+use scopeguard::defer;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use crate::device_mapper::interface::*;
+use crate::device_mapper::scoped::*;
 use crate::device_mapper::*;
+use crate::fixture::*;
+use crate::segment::*;
 use crate::test_runner::*;
 
-fn linear_create_remove(_fix: &mut Fixture) -> Result<()> {
-    let mut dm = create_interface()?;
+//--------------------------------
 
-    let dev = DmNameBuf::new("test-1".to_string())?;
-    dm.create(&dev)?;
+fn mk_linear(s: &Segment) -> Box<dyn Target> {
+    Box::new(Linear {
+        dev: s.dev,
+        offset: s.b_sector,
+        sectors: s.len(),
+    })
+}
 
-    let vda = dev_from_path(Path::new("/dev/vda"))?;
-    let targets: Vec<Box<dyn Target>> = vec![Box::new(Linear {
-        dev: vda,
-        offset: 0,
-        sectors: 1024,
-    })];
+fn linear_create_remove(fix: &mut Fixture) -> Result<()> {
+    let segs = fix.storage.alloc(1024)?;
+    let targets: Vec<Box<dyn Target>> = segs.iter().map(mk_linear).collect();
     let table = Table { targets };
-    dm.load(&dev, &table)?;
-    dm.resume(&dev)?;
 
-    // run mkfs :)
+    {
+        let _dev = scoped_dev(fix.dm.clone(), &table)?;
+        // run mkfs :)
+    }
 
-    dm.remove(&dev)?;
     Ok(())
 }
 
 pub fn register_tests(runner: &mut TestRunner) -> Result<()> {
-    let test = Test::new(Box::new(linear_create_remove));
+    let test = Test::new(Box::new(linear_create_remove), vec![]);
     runner.register("/linear/create-remove", test);
     Ok(())
 }
+
+//--------------------------------

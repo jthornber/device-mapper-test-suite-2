@@ -95,6 +95,23 @@ impl fmt::Debug for Table {
 
 pub trait Interface {
     fn create(&mut self, id: &DmName) -> Result<()>;
+
+    fn create_anonymous(&mut self) -> Result<DmNameBuf> {
+        use rand::prelude::*;
+        let mut rng = rand::thread_rng();
+        for _ in 0..10 {
+            let name = format!("test-{:09}", rng.gen_range(0..1000_000_000));
+            let name = DmNameBuf::new(name)?;
+            if self.create(&name).is_ok() {
+                return Ok(name);
+            }
+        }
+
+        Err(anyhow!(
+            "couldn't think of a unique name for temporary dm device"
+        ))
+    }
+
     fn load(&mut self, id: &DmName, table: &Table) -> Result<()>;
     fn suspend(&mut self, id: &DmName, flush: bool) -> Result<()>;
     fn resume(&mut self, id: &DmName) -> Result<()>;

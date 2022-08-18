@@ -5,6 +5,12 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use threadpool::ThreadPool;
 
+use crate::config::*;
+use crate::device_mapper::interface::*;
+use crate::device_mapper::*;
+use crate::fixture::*;
+use crate::segment::*;
+
 //-------------------------------
 
 fn path_components(path: &str) -> Vec<String> {
@@ -72,26 +78,35 @@ impl PathFormatter {
 
 //--------------------------------
 
-/// This holds all the context for a test.
-pub struct Fixture {}
+type StorageReq = Vec<(Tags, u64)>;
+
+//--------------------------------
 
 trait TestFn_ = FnOnce(&mut Fixture) -> Result<()> + Send + 'static;
 pub type TestFn = Box<dyn TestFn_>;
 
 pub struct Test {
     func: TestFn,
+    storage: StorageReq,
 }
 
 impl Test {
-    pub fn new(func: TestFn) -> Self {
+    pub fn new(func: TestFn, storage: StorageReq) -> Self {
         Test {
             func: Box::new(func),
+            storage,
         }
     }
 }
 
+/// Returns sectors
+fn get_dev_size(vol: &str) -> u64 {
+    1024
+}
+
 #[allow(dead_code)]
 pub struct TestRunner<'a> {
+    config: Config,
     filter_fn: Box<dyn Fn(&str) -> bool + 'a>,
     tests: BTreeMap<String, Test>,
     jobs: usize,
@@ -103,10 +118,11 @@ fn run_test(mut fix: Fixture, t: Test) -> Result<()> {
 }
 
 impl<'a> TestRunner<'a> {
-    pub fn new() -> Self {
+    pub fn new(config: Config) -> Self {
         let filter_fn = Box::new(move |_: &str| true);
 
         TestRunner {
+            config,
             filter_fn,
             tests: BTreeMap::new(),
             jobs: 1,
@@ -141,15 +157,25 @@ impl<'a> TestRunner<'a> {
             }
 
             let results = results.clone();
-            let fix = Fixture {};
+            let dm = create_interface()?;
+            let mut allocator = Allocator::default();
+            for vol in &self.config.test_volumes {
+                allocator.add_allocation_seg(Segment {
+                    dev: dev_from_path(vol)?,
+                    b_sector: 0,
+                    e_sector: get_dev_size(&vol),
+                    tags: Tags::empty(),
+                });
+            }
+            let fix = Fixture::new(dm, allocator);
 
-            pool.execute(move || {
-                let res = run_test(fix, t);
+            // pool.execute(move || {
+            let res = run_test(fix, t);
 
-                let mut results = results.lock().unwrap();
-                results.insert(p.clone(), res);
-                drop(results);
-            });
+            let mut results = results.lock().unwrap();
+            results.insert(p.clone(), res);
+            drop(results);
+            // });
         }
 
         pool.join();
