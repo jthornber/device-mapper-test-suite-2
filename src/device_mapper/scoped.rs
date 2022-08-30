@@ -1,5 +1,6 @@
 use anyhow::Result;
-use std::path::{Path, PathBuf};
+use std::ffi::OsString;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use crate::device_mapper::interface::*;
@@ -7,8 +8,8 @@ use crate::device_mapper::interface::*;
 //----------------------------
 
 pub struct ScopedDev {
-    dm: Arc<Mutex<dyn Interface>>,
-    name: DmNameBuf,
+    pub dm: Arc<Mutex<dyn Interface>>,
+    pub name: DmNameBuf,
 }
 
 impl Drop for ScopedDev {
@@ -16,41 +17,49 @@ impl Drop for ScopedDev {
         let mut dm = self.dm.lock().unwrap();
 
         // FIXME: the interface needs to track errors
-        dm.remove(&self.name);
+        dm.remove(&self.name).expect("dm.remove failed");
     }
 }
 
 impl ScopedDev {
-    fn load(&mut self, id: &DmName, table: &Table) -> Result<()> {
-        todo!();
+    pub fn load(&mut self, table: &Table) -> Result<()> {
+        let mut dm = self.dm.lock().unwrap();
+        dm.load(&self.name, table)
     }
 
-    fn suspend(&mut self, id: &DmName, flush: bool) -> Result<()> {
-        todo!();
+    pub fn suspend(&mut self, flush: bool) -> Result<()> {
+        let mut dm = self.dm.lock().unwrap();
+        dm.suspend(&self.name, flush)
     }
 
-    fn resume(&mut self, id: &DmName) -> Result<()> {
-        todo!();
+    pub fn resume(&mut self) -> Result<()> {
+        let mut dm = self.dm.lock().unwrap();
+        dm.resume(&self.name)
     }
 
-    fn remove(&mut self, id: &DmName) -> Result<()> {
-        todo!();
+    pub fn remove(&mut self) -> Result<()> {
+        let mut dm = self.dm.lock().unwrap();
+        dm.remove(&self.name)
     }
 
-    fn message(&mut self, id: &DmName, sector: Option<u64>, msg: &str) -> Result<()> {
-        todo!();
+    pub fn message(&mut self, sector: Option<u64>, msg: &str) -> Result<()> {
+        let mut dm = self.dm.lock().unwrap();
+        dm.message(&self.name, sector, msg)
     }
 
-    fn status(&mut self, id: &DmName) -> Result<String> {
-        todo!();
+    pub fn status(&mut self) -> Result<String> {
+        let mut dm = self.dm.lock().unwrap();
+        dm.status(&self.name)
     }
 
-    fn table(&mut self, id: &DmName) -> Result<Table> {
-        todo!();
+    pub fn table(&mut self) -> Result<Table> {
+        let mut dm = self.dm.lock().unwrap();
+        dm.table(&self.name)
     }
 
-    fn wait(&mut self, id: &DmName, event_nr: u64) -> Result<(u64, Vec<String>)> {
-        todo!();
+    pub fn wait(&mut self, event_nr: u64) -> Result<(u64, Vec<String>)> {
+        let mut dm = self.dm.lock().unwrap();
+        dm.wait(&self.name, event_nr)
     }
 }
 
@@ -72,6 +81,13 @@ pub fn scoped_dev(dm: Arc<Mutex<dyn Interface>>, table: &Table) -> Result<Scoped
         dm: dm_cloned,
         name,
     })
+}
+
+// FIXME: move to ScopedDev
+pub fn dev_to_ostr(dev: &ScopedDev) -> OsString {
+    let mut s = OsString::new();
+    s.push(std::str::from_utf8(dev.name.as_bytes()).expect("dm dev name is not utf8"));
+    s
 }
 
 //----------------------------

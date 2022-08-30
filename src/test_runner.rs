@@ -100,8 +100,9 @@ impl Test {
 }
 
 /// Returns sectors
-fn get_dev_size(vol: &str) -> u64 {
-    1024
+fn get_dev_size(vol: &str) -> Result<u64> {
+    let bytes = thinp::file_utils::file_size(vol)?;
+    Ok(bytes / 512)
 }
 
 #[allow(dead_code)]
@@ -158,16 +159,16 @@ impl<'a> TestRunner<'a> {
 
             let results = results.clone();
             let dm = create_interface()?;
-            let mut allocator = Allocator::default();
+            let mut storage = Allocator::default();
             for vol in &self.config.test_volumes {
-                allocator.add_allocation_seg(Segment {
+                storage.add_allocation_seg(Segment {
                     dev: dev_from_path(vol)?,
                     b_sector: 0,
-                    e_sector: get_dev_size(&vol),
+                    e_sector: get_dev_size(&vol)?,
                     tags: Tags::empty(),
                 });
             }
-            let fix = Fixture::new(dm, allocator);
+            let fix = Fixture::new(dm, storage);
 
             // pool.execute(move || {
             let res = run_test(fix, t);

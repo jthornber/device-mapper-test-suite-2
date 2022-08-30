@@ -7,12 +7,13 @@ use crate::device_mapper::interface::*;
 use crate::device_mapper::scoped::*;
 use crate::device_mapper::*;
 use crate::fixture::*;
+use crate::process::*;
 use crate::segment::*;
 use crate::test_runner::*;
 
 //--------------------------------
 
-fn mk_linear(s: &Segment) -> Box<dyn Target> {
+fn mk_linear_target(s: &Segment) -> Box<dyn Target> {
     Box::new(Linear {
         dev: s.dev,
         offset: s.b_sector,
@@ -20,14 +21,29 @@ fn mk_linear(s: &Segment) -> Box<dyn Target> {
     })
 }
 
+fn mk_linear_table(storage: &mut Allocator, sectors: u64) -> Result<Table> {
+    let segs = storage.alloc(sectors)?;
+    let targets: Vec<Box<dyn Target>> = segs.iter().map(mk_linear_target).collect();
+    Ok(Table { targets })
+}
+
 fn linear_create_remove(fix: &mut Fixture) -> Result<()> {
+    /*
     let segs = fix.storage.alloc(1024)?;
     let targets: Vec<Box<dyn Target>> = segs.iter().map(mk_linear).collect();
     let table = Table { targets };
+    */
+
+    let table = mk_linear_table(&mut fix.storage, 1024)?;
 
     {
-        let _dev = scoped_dev(fix.dm.clone(), &table)?;
-        // run mkfs :)
+        let mut dev = scoped_dev(fix.dm.clone(), &table)?;
+
+        {
+            dev.suspend(true)?;
+            duct::cmd!("mkfs.ext4", dev_to_ostr(&dev)).run()?;
+            dev.resume()?;
+        }
     }
 
     Ok(())
